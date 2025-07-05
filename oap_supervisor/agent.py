@@ -1,9 +1,10 @@
+import os
 from langgraph.pregel.remote import RemoteGraph
-from langchain_openai import ChatOpenAI
 from langgraph_supervisor import create_supervisor
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from langchain_core.runnables import RunnableConfig
+from langchain.chat_models import init_chat_model
 
 # This system prompt is ALWAYS included at the bottom of the message.
 UNEDITABLE_SYSTEM_PROMPT = """\nYou can invoke sub-agents by calling tools in this format:
@@ -44,6 +45,10 @@ class GraphConfigPydantic(BaseModel):
                 "default": DEFAULT_SUPERVISOR_PROMPT,
             }
         },
+    )
+    supervisor_model: str = Field(
+        default="openai:gpt-4.1",
+        metadata={"x_oap_ui_config": {"type": "text", "placeholder": "Enter the model to use for the supervisor."}},
     )
 
 
@@ -117,9 +122,30 @@ def make_child_graphs(cfg: GraphConfigPydantic, access_token: Optional[str] = No
     return [create_remote_graph_wrapper(a) for a in cfg.agents]
 
 
-def make_model(cfg: GraphConfigPydantic):
+def get_api_key_for_model(model_name: str, config: RunnableConfig):
+    model_name = model_name.lower()
+    model_to_key = {
+        "openai:": "OPENAI_API_KEY",
+        "anthropic:": "ANTHROPIC_API_KEY", 
+        "google": "GOOGLE_API_KEY"
+    }
+    key_name = next((key for prefix, key in model_to_key.items() 
+                    if model_name.startswith(prefix)), None)
+    if not key_name:
+        return None
+    api_keys = config.get("configurable", {}).get("apiKeys", {})
+    if api_keys and api_keys.get(key_name) and len(api_keys[key_name]) > 0:
+        return api_keys[key_name]
+    # Fallback to environment variable
+    return os.getenv(key_name)
+
+
+def make_model(cfg: GraphConfigPydantic, model_api_key: str):
     """Instantiate the LLM for the supervisor based on the config."""
-    return ChatOpenAI(model="gpt-4o")
+    return init_chat_model(
+        model=cfg.supervisor_model,
+        api_key=model_api_key
+    )
 
 
 def make_prompt(cfg: GraphConfigPydantic):
@@ -136,9 +162,12 @@ def graph(config: RunnableConfig):
     # Pass the token to make_child_graphs, which now handles None values
     child_graphs = make_child_graphs(cfg, supabase_access_token)
 
+    # Get the API key from the RunnableConfig or from the environment variable
+    model_api_key = get_api_key_for_model(cfg.supervisor_model, config) or "No token found"
+
     return create_supervisor(
         child_graphs,
-        model=make_model(cfg),
+        model=make_model(cfg, model_api_key),
         prompt=make_prompt(cfg),
         config_schema=GraphConfigPydantic,
         handoff_tool_prefix="delegate_to_",
