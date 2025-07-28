@@ -48,7 +48,58 @@ class GraphConfigPydantic(BaseModel):
     )
     supervisor_model: str = Field(
         default="openai:gpt-4.1",
-        metadata={"x_oap_ui_config": {"type": "text", "placeholder": "Enter the model to use for the supervisor."}},
+        metadata={
+            "x_oap_ui_config": {
+                "type": "select",
+                "placeholder": "Select the model to use for the supervisor.",
+                "options": [
+                    {
+                        "label": "Claude Sonnet 4",
+                        "value": "anthropic:claude-sonnet-4-0",
+                    },
+                    {
+                        "label": "Claude 3.7 Sonnet",
+                        "value": "anthropic:claude-3-7-sonnet-latest",
+                    },
+                    {
+                        "label": "Claude 3.5 Sonnet",
+                        "value": "anthropic:claude-3-5-sonnet-latest",
+                    },
+                    {
+                        "label": "Claude 3.5 Haiku",
+                        "value": "anthropic:claude-3-5-haiku-latest",
+                    },
+                    {
+                        "label": "o4 mini",
+                        "value": "openai:o4-mini",
+                    },
+                    {
+                        "label": "o3",
+                        "value": "openai:o3",
+                    },
+                    {
+                        "label": "o3 mini",
+                        "value": "openai:o3-mini",
+                    },
+                    {
+                        "label": "GPT 4o",
+                        "value": "openai:gpt-4o",
+                    },
+                    {
+                        "label": "GPT 4o mini",
+                        "value": "openai:gpt-4o-mini",
+                    },
+                    {
+                        "label": "GPT 4.1",
+                        "value": "openai:gpt-4.1",
+                    },
+                    {
+                        "label": "GPT 4.1 mini",
+                        "value": "openai:gpt-4.1-mini",
+                    },
+                ]
+            }
+        },
     )
 
 
@@ -173,3 +224,4 @@ def graph(config: RunnableConfig):
         handoff_tool_prefix="delegate_to_",
         output_mode="full_history",
     )
+
