@@ -46,7 +46,7 @@ uv sync
 ```bash
 # The --no-browser will disable auto-opening LangGraph studio when the server starts
 # optional, but recommended since the studio is not needed for this project
-uv run langgraph dev --no-browser
+uv run langgraph dev --no-browser --port 2026
 ```
 
 For more info, see our [LangGraph CLI docs](https://langchain-ai.github.io/langgraph/cloud/reference/cli/#dev)
