@@ -206,9 +206,21 @@ def make_prompt(cfg: GraphConfigPydantic):
 
 def graph(config: RunnableConfig):
     cfg = GraphConfigPydantic(**config.get("configurable", {}))
-    supabase_access_token = config.get("configurable", {}).get(
-        "x-supabase-access-token"
+    
+    # Try multiple possible locations for the token (OAP passes it in metadata)
+    supabase_access_token = (
+        config.get("configurable", {}).get("x-supabase-access-token") or
+        config.get("metadata", {}).get("x-supabase-access-token") or
+        config.get("metadata", {}).get("supabaseAccessToken")  # ← Actual OAP location
     )
+    
+    # Debug logging to verify token is present
+    print(f"[SUPERVISOR] Access token present: {bool(supabase_access_token)}")
+    if supabase_access_token:
+        print(f"[SUPERVISOR] Token length: {len(supabase_access_token)}")
+    else:
+        print(f"[SUPERVISOR] Config keys: {list(config.keys())}")
+        print(f"[SUPERVISOR] Metadata: {config.get('metadata', {})}")
 
     # Pass the token to make_child_graphs, which now handles None values
     child_graphs = make_child_graphs(cfg, supabase_access_token)

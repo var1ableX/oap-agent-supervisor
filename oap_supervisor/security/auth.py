@@ -58,9 +58,11 @@ async def get_current_user(authorization: str | None) -> Auth.types.MinimalUserD
                 status_code=401, detail="Invalid token or user not found"
             )
 
-        # Return user info if valid
+        # Return user info if valid, including the token for downstream use
+        # The token is included so it can be passed to child agents
         return {
             "identity": user.id,
+            "access_token": token,  # Store the token for downstream agents
         }
     except Exception as e:
         # Handle any errors from Supabase
@@ -77,9 +79,10 @@ async def on_thread_create(
 ):
     """Add owner when creating threads.
 
-    This handler runs when creating new threads and does two things:
+    This handler runs when creating new threads and does three things:
     1. Sets metadata on the thread being created to track ownership
     2. Returns a filter that ensures only the creator can access it
+    3. Injects the authorization token into the config for downstream agents
     """
 
     if isinstance(ctx.user, StudioUser):
@@ -89,6 +92,19 @@ async def on_thread_create(
     # This metadata is stored with the thread and persists
     metadata = value.setdefault("metadata", {})
     metadata["owner"] = ctx.user.identity
+    
+    # Inject the authorization token into the config so child agents can use it
+    # This allows the supervisor to pass the token when delegating to sub-agents
+    access_token = getattr(ctx.user, 'access_token', None)
+    print(f"[AUTH] User identity: {ctx.user.identity}")
+    print(f"[AUTH] Access token present in user: {bool(access_token)}")
+    if access_token:
+        print(f"[AUTH] Injecting token into config (length: {len(access_token)})")
+        config = value.setdefault("config", {})
+        configurable = config.setdefault("configurable", {})
+        configurable["x-supabase-access-token"] = access_token
+    else:
+        print(f"[AUTH] WARNING: No access_token found in ctx.user")
 
 
 @auth.on.threads.read
